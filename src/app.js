@@ -13,6 +13,7 @@ import barberosRoutes from './routes/barberoRoutes.js'
 import serviciosRoutes from './routes/servicios.routes.js'
 import vacuumRoutes from './routes/vacuum.routes.js';
 import prediccionRoute from './routes/prediccion.routes.js'
+import oauthRoutes from './routes/oauth.routes.js';
 import localesRoutes from './routes/localRoutes.js';
 import logger from './config/logger.js';
 import { httpLogger } from './middlewares/loggerMiddleware.js';
@@ -80,6 +81,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/productos',  productsRoutes);
 app.use('/api/prediccion',  prediccionRoute);
 app.use('/api/locales', localesRoutes);
+app.use('/oauth', oauthRoutes);
 
 app.get('/health', (req, res) => {
   logger.info('Health check');
