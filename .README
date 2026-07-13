@@ -1,0 +1,43 @@
+📚 Endpoints de la API
+🔐 Autenticación
+httpPOST /api/auth/register    # Registrar usuario
+POST /api/auth/login       # Iniciar sesión
+GET  /api/auth/me          # Obtener usuario actual (requiere token)
+
+📅 Citas
+httpGET    /api/citas                # Listar citas (filtros: fecha, barbero_id, estado)
+GET    /api/citas/:id            # Obtener cita por ID
+POST   /api/citas                # Crear cita (requiere token)
+PUT    /api/citas/:id            # Actualizar cita (requiere token)
+DELETE /api/citas/:id            # Cancelar cita (requiere token)
+PUT    /api/citas/:id/completar  # Marcar como completada (barbero/admin)
+
+✂️ Barberos
+httpGET /api/barberos                       # Listar barberos
+GET /api/barberos/:id                   # Obtener barbero por ID
+GET /api/barberos/:id/disponibilidad    # Ver disponibilidad (requiere ?fecha=)
+GET /api/barberos/:id/estadisticas      # Estadísticas (barbero/admin)
+POST /api/barberos                      # Crear barbero (admin)
+PUT /api/barberos/:id/horario           # Configurar horario (admin/barbero)
+
+💇 Servicios
+httpGET    /api/servicios       # Listar servicios
+GET    /api/servicios/:id   # Obtener servicio por ID
+POST   /api/servicios       # Crear servicio (admin)
+PUT    /api/servicios/:id   # Actualizar servicio (admin)
+DELETE /api/servicios/:id   # Desactivar servicio (admin)
+
+🔔 Notificaciones
+httpGET /api/notificaciones                    # Listar notificaciones (requiere token)
+PUT /api/notificaciones/:id/marcar-leida   # Marcar como leída
+PUT /api/notificaciones/marcar-todas-leidas # Marcar todas
+DELETE /api/notificaciones/:id             # Eliminar notificación
+
+
+
+
+
+
+
+
+
