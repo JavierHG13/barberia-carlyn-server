@@ -8,13 +8,16 @@ const SELF_BASE_URL = process.env.BASE_URL || 'https://localhost:4000';
 
 // Redirect URIs que Amazon te da al guardar el Account Linking (los 3)
 const REDIRECT_URIS_PERMITIDOS = [
-  'https://pitangui.amazon.com/api/skill/link/M2XXXXXX',
-  'https://layla.amazon.com/api/skill/link/M2XXXXXX',
-  'https://alexa.amazon.co.jp/api/skill/link/M2XXXXXX',
+  'https://pitangui.amazon.com/spa/skill/account-linking-status.html?vendorId=M2I590XNE3TWZU',
+  'https://layla.amazon.com/spa/skill/account-linking-status.html?vendorId=M2I590XNE3TWZU',
+  'https://alexa.amazon.co.jp/spa/skill/account-linking-status.html?vendorId=M2I590XNE3TWZU',
 ];
 
 // GET /oauth/authorize?redirect_uri=...&state=...&response_type=token&client_id=...
 router.get('/authorize', (req, res) => {
+
+  console.log("Revisando que trae query:", req.query);
+
   const { redirect_uri, state } = req.query;
 
   if (!REDIRECT_URIS_PERMITIDOS.includes(redirect_uri)) {
