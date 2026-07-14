@@ -1,11 +1,32 @@
 import winston from 'winston';
 import 'winston-daily-rotate-file';
 
-const dailyRotate = new winston.transports.DailyRotateFile({
-  filename: 'logs/app-%DATE%.log',
-  datePattern: 'YYYY-MM-DD',
-  maxFiles: '14d'
-});
+const transports = [
+  new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  })
+];
+
+// Solo agregar archivos de log cuando NO estamos en Vercel
+if (!process.env.VERCEL) {
+  transports.push(
+    new winston.transports.DailyRotateFile({
+      filename: 'logs/app-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '14d'
+    })
+  );
+
+  transports.push(
+    new winston.transports.File({
+      filename: 'logs/error.log',
+      level: 'error'
+    })
+  );
+}
 
 const logger = winston.createLogger({
   level: 'info',
@@ -13,19 +34,7 @@ const logger = winston.createLogger({
     winston.format.timestamp(),
     winston.format.json()
   ),
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
-    }),
-    dailyRotate,
-    new winston.transports.File({
-      filename: 'logs/error.log',
-      level: 'error'
-    })
-  ]
+  transports
 });
 
 export default logger;
