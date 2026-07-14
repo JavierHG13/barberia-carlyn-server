@@ -5,13 +5,14 @@ import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import os from 'os';
 const router = express.Router();
 
 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const tempDir = path.join(__dirname, '../temp');
+const tempDir = path.join(os.tmpdir(), 'barberia-temp');
 
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
