@@ -20,6 +20,8 @@ const parsePositiveInt = (value) => {
   return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
 };
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
 /**
  * Validates a date string and returns a Date, or null if invalid.
  */
@@ -113,7 +115,8 @@ export const createAppointment = async (req, res, next) => {
     } = req.body;
 
     const requestedClienteId = parsePositiveInt(clienteId);
-    const isCliente = req.user?.rol === 'Cliente';
+    const userRole = normalizeRole(req.user?.rol);
+    const isCliente = userRole === 'cliente';
     const effectiveClienteId = isCliente ? req.user.id : requestedClienteId;
 
     // Validate required IDs
@@ -220,7 +223,7 @@ export const updateAppointment = async (req, res, next) => {
     const existing = await Appointment.findById(appointmentId);
     if (!existing) return res.status(404).json({ message: 'Cita no encontrada' });
 
-    const isCliente = req.user?.rol === 'Cliente';
+    const isCliente = normalizeRole(req.user?.rol) === 'cliente';
     if (isCliente) {
       if (existing.cliente_id !== req.user.id) {
         return res.status(403).json({ message: 'No puedes modificar esta cita' });
@@ -587,7 +590,7 @@ export const getAppointmentById = async (req, res, next) => {
     if (!cita) return res.status(404).json({ message: 'Cita no encontrada' });
 
     // Clientes solo pueden ver sus propias citas
-    if (req.user.rol === 'cliente' && cita.cliente_id !== req.user.id) {
+    if (normalizeRole(req.user.rol) === 'cliente' && cita.cliente_id !== req.user.id) {
       return res.status(403).json({ message: 'No tienes permiso para ver esta cita' });
     }
 
@@ -607,7 +610,7 @@ export const cancelAppointment = async (req, res, next) => {
     if (!existing) return res.status(404).json({ message: 'Cita no encontrada' });
 
     // Clientes solo pueden cancelar sus propias citas
-    if (req.user.rol === 'cliente' && existing.cliente_id !== req.user.id) {
+    if (normalizeRole(req.user.rol) === 'cliente' && existing.cliente_id !== req.user.id) {
       return res.status(403).json({ message: 'No tienes permiso para cancelar esta cita' });
     }
 

@@ -73,6 +73,8 @@ const APPOINTMENT_UPDATE_MAP = {
   motivoCancelacion:  'motivo_cancelacion',
 };
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+
 /**
  * Build a WHERE clause from filter options.
  * @param {object} filters
@@ -371,12 +373,13 @@ class Appointment {
     const conditions = [];
     const values = [];
     let idx = 1;
+    const normalizedRole = normalizeRole(userRole);
 
     // Role-based scope
-    if (userRole === 'Cliente') {
+    if (normalizedRole === 'cliente') {
       conditions.push(`c.cliente_id = $${idx++}`);
       values.push(userId);
-    } else if (userRole === 'Barbero') {
+    } else if (normalizedRole === 'barbero') {
       // Resolve the barberos.id from the usuarios.id
       const barberoResult = await pool.query(
         'SELECT id FROM barberos WHERE usuario_id = $1 LIMIT 1',
