@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import Usuario from '../models/Usuario.model.js';
 import { query } from '../config/database.js';
+import emailService from '../utils/emailService.js';
 
 class UsuarioController {
   
@@ -110,6 +111,11 @@ class UsuarioController {
 
       if (!usuario) {
         return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      if (password) {
+        emailService.sendPasswordChangedEmail(usuario.email, usuario.nombre)
+          .catch((err) => console.error('Error al enviar correo de cambio de contraseña:', err.message));
       }
 
       res.json({

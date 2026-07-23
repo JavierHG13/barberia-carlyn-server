@@ -41,6 +41,45 @@ class User {
     return result.rows[0];
   }
 
+  static async updateProfile(id, { nombre, telefono, foto }) {
+    const updates = [];
+    const values = [];
+    let index = 1;
+
+    if (nombre !== undefined) {
+      updates.push(`nombre = $${index++}`);
+      values.push(nombre);
+    }
+
+    if (telefono !== undefined) {
+      updates.push(`telefono = $${index++}`);
+      values.push(telefono || null);
+    }
+
+    if (foto !== undefined) {
+      updates.push(`foto = $${index++}`);
+      values.push(foto || null);
+    }
+
+    if (updates.length === 0) {
+      return this.findById(id);
+    }
+
+    values.push(id);
+    const result = await pool.query(
+      `UPDATE usuarios
+       SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $${index}
+       RETURNING id, nombre, email, telefono, rol_id, foto, activo, created_at, updated_at`,
+      values
+    );
+
+    const updated = result.rows[0];
+    if (!updated) return null;
+
+    return this.findById(updated.id);
+  }
+
   static async findAll({ limit = 10, offset = 0, search = '' }) {
     const values = [];
     let index = 1;

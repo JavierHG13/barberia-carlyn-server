@@ -15,6 +15,10 @@ import vacuumRoutes from './routes/vacuum.routes.js';
 import prediccionRoute from './routes/prediccion.routes.js'
 import oauthRoutes from './routes/oauth.routes.js';
 import localesRoutes from './routes/localRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+import horariosRoutes from './routes/horarios.routes.js';
+import saleRoutes from './routes/saleRoutes.js';
+import skillRoutes from './routes/skillRoutes.js';
 import logger from './config/logger.js';
 import { httpLogger } from './middlewares/loggerMiddleware.js';
 import { initBackupScheduler } from './config/backup.scheduler.js';
@@ -77,10 +81,14 @@ app.use('/api/barbero', barberosRoutes);
 app.use('/api/admin/database', databaseRoutes);
 app.use('/api/admin/backups', backupRoutes);
 app.use('/api/admin/vacuums', vacuumRoutes);
+app.use('/api/admin/horarios', horariosRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/productos',  productsRoutes);
 app.use('/api/prediccion',  prediccionRoute);
 app.use('/api/locales', localesRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/admin/pos', saleRoutes);
+app.use('/api/skill', skillRoutes);
 app.use('/oauth', oauthRoutes);
 
 app.get('/health', (req, res) => {

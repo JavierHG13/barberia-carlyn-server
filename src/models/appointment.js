@@ -79,7 +79,7 @@ const APPOINTMENT_UPDATE_MAP = {
  * @param {number} [startIndex=1]
  */
 const buildWhereClause = (
-  { q, telefono, fechaInicio, fechaFin, estadoId, barberoId, clienteId, localId },
+  { q, telefono, fechaInicio, fechaFin, estadoId, barberoId, clienteId, localId, scope },
   startIndex = 1
 ) => {
   const conditions = [];
@@ -139,6 +139,22 @@ const buildWhereClause = (
     conditions.push(`c.local_id = $${idx}`);
     values.push(localId);
     idx += 1;
+  }
+
+  if (scope === 'proximas') {
+    conditions.push(`(
+      c.fecha > CURRENT_DATE
+      OR (c.fecha = CURRENT_DATE AND c.hora_fin >= CURRENT_TIME)
+    )`);
+    conditions.push(`LOWER(COALESCE(e.nombre, '')) NOT IN ('completada', 'cancelada', 'no_asistio', 'no asistio')`);
+  }
+
+  if (scope === 'historial') {
+    conditions.push(`(
+      c.fecha < CURRENT_DATE
+      OR (c.fecha = CURRENT_DATE AND c.hora_fin < CURRENT_TIME)
+      OR LOWER(COALESCE(e.nombre, '')) IN ('completada', 'cancelada', 'no_asistio', 'no asistio')
+    )`);
   }
 
   return {
@@ -293,18 +309,22 @@ class Appointment {
     barberoId = null,
     clienteId = null,
     localId = null, // NUEVO
+    scope = null,
     limit = 10,
     offset = 0,
   }) {
-    const filters = buildWhereClause({ q, telefono, fechaInicio, fechaFin, estadoId, barberoId, clienteId, localId });
+    const filters = buildWhereClause({ q, telefono, fechaInicio, fechaFin, estadoId, barberoId, clienteId, localId, scope });
     const limitIdx  = filters.nextIndex;
     const offsetIdx = filters.nextIndex + 1;
+    const orderBy = scope === 'historial'
+      ? 'ORDER BY c.fecha DESC, c.hora_inicio DESC'
+      : 'ORDER BY c.fecha ASC, c.hora_inicio ASC';
 
     const result = await pool.query(
       `SELECT ${APPOINTMENT_SELECT}
        ${APPOINTMENT_JOINS}
        ${filters.whereClause}
-       ORDER BY c.fecha ASC, c.hora_inicio ASC
+       ${orderBy}
        LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
       [...filters.values, limit, offset]
     );
@@ -321,8 +341,9 @@ class Appointment {
     barberoId = null,
     clienteId = null,
     localId = null, // NUEVO
+    scope = null,
   }) {
-    const filters = buildWhereClause({ q, telefono, fechaInicio, fechaFin, estadoId, barberoId, clienteId, localId });
+    const filters = buildWhereClause({ q, telefono, fechaInicio, fechaFin, estadoId, barberoId, clienteId, localId, scope });
 
     const result = await pool.query(
       `SELECT COUNT(*)::INT AS total

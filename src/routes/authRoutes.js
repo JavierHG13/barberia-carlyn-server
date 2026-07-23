@@ -21,5 +21,7 @@ router.post('/verify-recovery-code', validateCode, authController.verifyRecovery
 router.post('/reset-password', validateResetPassword, authController.resetPassword);
 router.post('/resend-recovery-code', validateEmail, authController.resendRecoveryCode);
 router.get('/profile', verifyToken, authController.getProfile);
+router.put('/profile', verifyToken, authController.updateProfile);
+router.get('/verificar-correo', authController.verificarCorreo);
 
 export default router;

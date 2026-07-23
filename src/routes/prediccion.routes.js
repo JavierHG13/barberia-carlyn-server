@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
-import { calcularPrediccion, getResumenPrediccion, getMesesDisponibles, getCitasPorMes} from '../controllers/prediccionController.js';
+import {
+  calcularPrediccion,
+  entrenarKnowledgeModels,
+  getCitasPorMes,
+  getKnowledgeModule,
+  getMesesDisponibles,
+  getResumenPrediccion,
+} from '../controllers/prediccionController.js';
 
 const router = Router();
 
@@ -16,5 +23,9 @@ router.post('/', calcularPrediccion);
 router.get('/meses-disponibles', getMesesDisponibles);
 
 router.get('/citas', getCitasPorMes);
+
+router.get('/conocimiento/:tipo', getKnowledgeModule);
+
+router.post('/conocimiento/entrenar', entrenarKnowledgeModels);
 
 export default router;

@@ -18,7 +18,11 @@ export const verifyToken = async (req, res, next) => {
 
     // Verificar que el usuario existe y está activo
     const result = await query(
-      'SELECT u.id, u.nombre, u.email, u.activo, r.nombre as rol FROM usuarios u JOIN roles r ON u.rol_id = r.id WHERE u.email = $1',
+      `SELECT u.id, u.nombre, u.email, u.telefono, u.rol_id, u.foto, u.activo,
+              u.created_at, u.updated_at, r.nombre as rol
+       FROM usuarios u
+       JOIN roles r ON u.rol_id = r.id
+       WHERE u.email = $1`,
       [decoded.email]
     );
 
@@ -58,9 +62,15 @@ export const requireRole = (...roles) => {
       return res.status(401).json({ error: 'No autenticado' });
     }
 
-    if (!roles.includes(req.user.rol)) {
+    const normalizeRole = (role) => String(role || '').trim().toLowerCase();
+    const allowedRoles = roles.map(normalizeRole);
+    const userRole = normalizeRole(req.user.rol);
+
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
-        error: 'No tienes permisos para realizar esta acción'
+        error: 'No tienes permisos para realizar esta acción',
+        rol: req.user.rol,
+        rolesPermitidos: roles,
       });
     }
 

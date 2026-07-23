@@ -1,0 +1,9 @@
+numpy
+pandas
+scikit-learn
+joblib
+psycopg2-binary
+matplotlib
+seaborn
+scipy
+nbformat

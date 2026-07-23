@@ -7,7 +7,7 @@ const SALE_SELECT = `
   v.notas,
   v.total,
   v.vendida_por,
-  COALESCE(u.nombre_completo, 'Sistema') AS vendida_por_nombre,
+  COALESCE(u.nombre, 'Sistema') AS vendida_por_nombre,
   v.fecha_venta,
   v.created_at
 `;
@@ -17,7 +17,7 @@ class Sale {
     const saleResult = await pool.query(
       `SELECT ${SALE_SELECT}
        FROM tbl_ventas v
-       LEFT JOIN tbl_usuarios u ON u.id = v.vendida_por
+       LEFT JOIN usuarios u ON u.id = v.vendida_por
        WHERE v.id = $1`,
       [id]
     );
@@ -166,11 +166,11 @@ class Sale {
            '[]'::json
          ) AS detalles
        FROM tbl_ventas v
-       LEFT JOIN tbl_usuarios u ON u.id = v.vendida_por
+       LEFT JOIN usuarios u ON u.id = v.vendida_por
        LEFT JOIN tbl_ventas_detalle d ON d.venta_id = v.id
        WHERE v.fecha_venta >= $1::timestamp
          AND v.fecha_venta < $2::timestamp
-       GROUP BY v.id, u.nombre_completo
+       GROUP BY v.id, u.nombre
        ORDER BY v.fecha_venta DESC`,
       [from, to]
     );
@@ -198,10 +198,10 @@ class Sale {
            '[]'::json
          ) AS detalles
        FROM tbl_ventas v
-       LEFT JOIN tbl_usuarios u ON u.id = v.vendida_por
+       LEFT JOIN usuarios u ON u.id = v.vendida_por
        LEFT JOIN tbl_ventas_detalle d ON d.venta_id = v.id
        WHERE DATE(v.fecha_venta) = $1::date
-       GROUP BY v.id, u.nombre_completo
+       GROUP BY v.id, u.nombre
        ORDER BY v.fecha_venta DESC`,
       [dayLabel]
     );

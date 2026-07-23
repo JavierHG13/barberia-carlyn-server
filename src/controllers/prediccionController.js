@@ -1,4 +1,11 @@
 import { query } from '../config/database.js';
+import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const serverRoot = path.resolve(__dirname, '..', '..');
 
 /**
  * Calcula la predicción de citas usando modelo exponencial dx/dt = kx
@@ -377,6 +384,235 @@ export const getResumenPrediccion = async (req, res) => {
     } catch (error) {
         console.error('Error en resumen:', error);
         return res.status(500).json({ error: 'Error al obtener resumen: ' + error.message });
+    }
+};
+
+const parseNumber = (value, fallback = 0) => Number(value ?? fallback);
+
+const getMetric = async (modelKey) => {
+    const result = await query(
+        `SELECT model_key, model_name, algorithm, trained_at, samples, metrics, artifact_path
+         FROM analitica.ml_model_metrics
+         WHERE model_key = $1
+         LIMIT 1`,
+        [modelKey]
+    );
+    return result.rows[0] || null;
+};
+
+const ensureKnowledgeReady = async () => {
+    const result = await query(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM information_schema.tables
+           WHERE table_schema = 'analitica'
+             AND table_name = 'ml_model_metrics'
+         ) AS exists`
+    );
+    return Boolean(result.rows[0]?.exists);
+};
+
+const getNoShowModule = async () => {
+    const [metric, predictions] = await Promise.all([
+        getMetric('no-show'),
+        query(
+            `SELECT id, cita_dataset_id, fecha, hora, cliente_nombre, servicio_nombre,
+                    local_nombre, riesgo, nivel, accion_sugerida
+             FROM analitica.ml_no_show_predictions
+             ORDER BY riesgo DESC, fecha ASC, hora ASC
+             LIMIT 18`
+        ),
+    ]);
+
+    const rows = predictions.rows;
+    const highRisk = rows.filter((row) => row.nivel === 'Alto').length;
+    const recoverableHours = Math.round(rows.reduce((acc, row) => acc + (row.nivel === 'Alto' ? 1.25 : 0.5), 0));
+
+    return {
+        key: 'no-show',
+        title: 'Riesgo de inasistencia',
+        subtitle: 'Citas con mayor probabilidad de cancelacion o no-show',
+        metric,
+        kpis: {
+            citasEnRiesgo: rows.length,
+            riesgoAlto: highRisk,
+            horariosRecuperables: recoverableHours,
+            recordatoriosSugeridos: rows.filter((row) => row.nivel !== 'Bajo').length,
+        },
+        citas: rows.map((row) => ({
+            id: row.id,
+            fecha: row.fecha,
+            hora: String(row.hora).slice(0, 5),
+            cliente: row.cliente_nombre,
+            servicio: row.servicio_nombre,
+            sucursal: row.local_nombre,
+            riesgo: Math.round(parseNumber(row.riesgo) * 100),
+            nivel: row.nivel,
+            accion: row.accion_sugerida,
+        })),
+        acciones: [
+            'Enviar recordatorio reforzado',
+            'Llamar a clientes con riesgo alto',
+            'Abrir lista de espera si no confirma',
+        ],
+    };
+};
+
+const getIngresosModule = async () => {
+    const [metric, predictions] = await Promise.all([
+        getMetric('ingresos'),
+        query(
+            `SELECT id, local_id, local_nombre, semana, fecha_inicio, ingreso_proyectado,
+                    ticket_promedio, ocupacion_esperada, variacion_pct, decision
+             FROM analitica.ml_ingresos_predictions
+             ORDER BY fecha_inicio ASC, local_nombre ASC
+             LIMIT 24`
+        ),
+    ]);
+
+    const rows = predictions.rows;
+    const nextWeek = rows.slice(0, Math.max(1, new Set(rows.map((row) => row.local_id)).size || 1));
+    const total = nextWeek.reduce((acc, row) => acc + parseNumber(row.ingreso_proyectado), 0);
+    const avgTicket = nextWeek.length
+        ? nextWeek.reduce((acc, row) => acc + parseNumber(row.ticket_promedio), 0) / nextWeek.length
+        : 0;
+    const avgOccupancy = nextWeek.length
+        ? nextWeek.reduce((acc, row) => acc + parseNumber(row.ocupacion_esperada), 0) / nextWeek.length
+        : 0;
+    const avgVariation = nextWeek.length
+        ? nextWeek.reduce((acc, row) => acc + parseNumber(row.variacion_pct), 0) / nextWeek.length
+        : 0;
+
+    return {
+        key: 'ingresos',
+        title: 'Pronostico de ingresos',
+        subtitle: 'Proyeccion semanal por sucursal y desempeno esperado',
+        metric,
+        kpis: {
+            ingresoProyectado: Math.round(total),
+            ticketPromedio: Math.round(avgTicket),
+            ocupacionEsperada: Math.round(avgOccupancy),
+            variacion: Math.round(avgVariation),
+        },
+        sucursales: rows.map((row) => ({
+            id: row.id,
+            localId: row.local_id,
+            local: row.local_nombre,
+            semana: row.semana,
+            fechaInicio: row.fecha_inicio,
+            ingreso: Math.round(parseNumber(row.ingreso_proyectado)),
+            ticket: Math.round(parseNumber(row.ticket_promedio)),
+            ocupacion: Math.round(parseNumber(row.ocupacion_esperada)),
+            variacion: Math.round(parseNumber(row.variacion_pct)),
+            decision: row.decision,
+        })),
+        decisiones: [...new Set(rows.map((row) => row.decision))].slice(0, 4),
+    };
+};
+
+const getSegmentacionModule = async () => {
+    const [metric, summary, clients] = await Promise.all([
+        getMetric('segmentacion'),
+        query(
+            `SELECT segmento, color, COUNT(*)::int AS total,
+                    AVG(gasto_total)::numeric(10,2) AS gasto_promedio,
+                    AVG(recencia_dias)::numeric(10,2) AS recencia_promedio,
+                    AVG(no_show_rate)::numeric(10,4) AS no_show_promedio
+             FROM analitica.ml_cliente_segments
+             GROUP BY segmento, color
+             ORDER BY total DESC`
+        ),
+        query(
+            `SELECT cliente_ref, cliente_nombre, segmento, frecuencia_90d, recencia_dias,
+                    gasto_total, no_show_rate, accion, color
+             FROM analitica.ml_cliente_segments
+             ORDER BY gasto_total DESC, frecuencia_90d DESC
+             LIMIT 18`
+        ),
+    ]);
+
+    return {
+        key: 'segmentacion',
+        title: 'Segmentacion de clientes',
+        subtitle: 'Grupos de clientes segun frecuencia, gasto y riesgo de fuga',
+        metric,
+        segmentos: summary.rows.map((row) => ({
+            nombre: row.segmento,
+            color: row.color,
+            total: row.total,
+            gastoPromedio: Math.round(parseNumber(row.gasto_promedio)),
+            recenciaPromedio: Math.round(parseNumber(row.recencia_promedio)),
+            noShowPromedio: Math.round(parseNumber(row.no_show_promedio) * 100),
+        })),
+        clientes: clients.rows.map((row) => ({
+            clienteRef: row.cliente_ref,
+            cliente: row.cliente_nombre,
+            segmento: row.segmento,
+            frecuencia: row.frecuencia_90d,
+            recencia: row.recencia_dias,
+            gasto: Math.round(parseNumber(row.gasto_total)),
+            noShow: Math.round(parseNumber(row.no_show_rate) * 100),
+            accion: row.accion,
+            color: row.color,
+        })),
+        campanas: summary.rows.map((row) => ({
+            segmento: row.segmento,
+            texto: row.segmento === 'VIP frecuentes'
+                ? 'Acceso anticipado a paquetes premium.'
+                : row.segmento === 'Riesgo de fuga'
+                    ? 'Promocion de regreso con vigencia corta.'
+                    : row.segmento === 'Nuevos/prueba'
+                        ? 'Mensaje post-servicio y recomendacion de proxima visita.'
+                        : 'Recordatorio automatico para mantener frecuencia.',
+        })),
+    };
+};
+
+export const getKnowledgeModule = async (req, res) => {
+    try {
+        const { tipo } = req.params;
+        const ready = await ensureKnowledgeReady();
+
+        if (!ready) {
+            return res.status(409).json({
+                error: 'Los modelos aun no estan entrenados. Ejecuta npm run ml:train en el backend.',
+            });
+        }
+
+        if (tipo === 'no-show') return res.json(await getNoShowModule());
+        if (tipo === 'ingresos') return res.json(await getIngresosModule());
+        if (tipo === 'segmentacion') return res.json(await getSegmentacionModule());
+
+        return res.status(404).json({ error: 'Modulo de conocimiento no encontrado' });
+    } catch (error) {
+        console.error('Error obteniendo modulo de conocimiento:', error);
+        return res.status(500).json({ error: 'Error al obtener modulo: ' + error.message });
+    }
+};
+
+export const entrenarKnowledgeModels = async (req, res) => {
+    try {
+        const rows = Number(req.body?.rows || 1000);
+        const scriptPath = path.join(serverRoot, 'ml', 'train_knowledge_models.py');
+        const child = spawn('python', [scriptPath, '--rows', String(rows)], {
+            cwd: serverRoot,
+            shell: process.platform === 'win32',
+        });
+
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (data) => { stdout += data.toString(); });
+        child.stderr.on('data', (data) => { stderr += data.toString(); });
+
+        child.on('close', (code) => {
+            if (code !== 0) {
+                return res.status(500).json({ error: 'Error entrenando modelos', details: stderr || stdout });
+            }
+            return res.json({ ok: true, output: stdout.trim().split(/\r?\n/).filter(Boolean) });
+        });
+    } catch (error) {
+        console.error('Error lanzando entrenamiento:', error);
+        return res.status(500).json({ error: 'Error al lanzar entrenamiento: ' + error.message });
     }
 };
 

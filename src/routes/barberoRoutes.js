@@ -9,7 +9,10 @@ import {
   getHorarios,
   updateHorarios,
   toggleDiaHorario,
-  deleteDiaHorario, listarBarberosPorLocal, asignarLocalBarbero
+  deleteDiaHorario,
+  listarBarberosPorLocal,
+  asignarLocalBarbero,
+  updatePerfilAdmin,
 } from '../controllers/barberoController.js';
 
 
@@ -45,7 +48,8 @@ router.patch('/horarios/:diaSemana/toggle', verifyToken, requireRole("Barbero","
 router.delete('/horarios/:diaSemana', verifyToken, requireRole("Barbero","Admin"), deleteDiaHorario);
 
 router.get('/local/:localId', listarBarberosPorLocal);
-router.patch('/:id/local', asignarLocalBarbero); // agrega tu middleware de admin aquí
+router.patch('/:id/perfil', verifyToken, requireRole("Admin"), updatePerfilAdmin);
+router.patch('/:id/local', verifyToken, requireRole("Admin"), asignarLocalBarbero);
 
 
 export default router;

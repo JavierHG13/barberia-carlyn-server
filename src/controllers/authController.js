@@ -136,7 +136,7 @@ export const register = async (req, res, next) => {
       canal,
     });
 
-    
+
 
     await VerificationTemp.cleanOldVerifications();
     await sendVerificationCode({ canal, correoElectronico, telefono, nombreCompleto, code: verificationCode });
@@ -282,7 +282,13 @@ export const login = async (req, res, next) => {
         id: user.id,
         nombre: user.nombre,
         email: user.email,
+        telefono: user.telefono,
+        rol_id: user.rol_id,
         rol: user.rol,
+        foto: user.foto,
+        activo: user.activo,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
       },
     });
   } catch (error) {
@@ -357,7 +363,13 @@ export const googleAuth = async (req, res, next) => {
         id: user.id,
         nombre: user.nombre,
         email: user.email,
+        telefono: user.telefono,
+        rol_id: user.rol_id,
         rol: roleMap[user.rol_id] || "Cliente",
+        foto: user.foto,
+        activo: user.activo,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
       }
     });
   } catch (error) {
@@ -418,7 +430,7 @@ export const verifyRecoveryCode = async (req, res, next) => {
   try {
     const { code, correoElectronico, telefono, canal = 'email' } = req.body;
 
-   
+
     console.log("Codigo enviado", code, "correo enviado", correoElectronico)
     const verification = await VerificationTemp.findOne(
       canal === 'sms' ? null : correoElectronico,
@@ -544,6 +556,25 @@ export const resendRecoveryCode = async (req, res, next) => {
   }
 };
 
+export const verificarCorreo = async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ existe: false, message: 'Falta el correo' });
+    }
+
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return res.json({ existe: false });
+    }
+
+    return res.json({ existe: true, id: user.id, nombre: user.nombre });
+  } catch (error) {
+    console.error('Error verificarCorreo:', error);
+    return res.status(500).json({ existe: false, message: 'Error al verificar correo' });
+  }
+};
+
 // ========== PERFIL ==========
 
 export const getProfile = async (req, res) => {
@@ -551,4 +582,46 @@ export const getProfile = async (req, res) => {
     message: 'Perfil obtenido exitosamente',
     user: req.user,
   });
+};
+
+export const updateProfile = async (req, res, next) => {
+  try {
+    const { nombre, telefono, foto } = req.body;
+
+    if (nombre !== undefined && String(nombre).trim().length < 3) {
+      return res.status(400).json({ message: 'El nombre debe tener al menos 3 caracteres' });
+    }
+
+    if (telefono && !/^[0-9]{10}$/.test(String(telefono))) {
+      return res.status(400).json({ message: 'El teléfono debe tener 10 dígitos' });
+    }
+
+    const updated = await User.updateProfile(req.user.id, {
+      nombre: nombre !== undefined ? String(nombre).trim() : undefined,
+      telefono: telefono !== undefined ? String(telefono).trim() : undefined,
+      foto: foto !== undefined ? String(foto).trim() : undefined,
+    });
+
+    if (!updated) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    res.json({
+      message: 'Perfil actualizado exitosamente',
+      user: {
+        id: updated.id,
+        nombre: updated.nombre,
+        email: updated.email,
+        telefono: updated.telefono,
+        rol_id: updated.rol_id,
+        rol: updated.rol,
+        foto: updated.foto,
+        activo: updated.activo,
+        created_at: updated.created_at,
+        updated_at: updated.updated_at,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };

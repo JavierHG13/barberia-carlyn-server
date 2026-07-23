@@ -132,7 +132,7 @@ class BarberoModel {
          u.foto                    AS cliente_foto
        FROM citas c
        JOIN estados_cita e  ON c.estado_id  = e.id
-       JOIN servicios s     ON c.servicio_id = s.id
+       JOIN tbl_servicios s ON c.servicio_id = s.id
        JOIN usuarios u      ON c.cliente_id  = u.id
        LEFT JOIN metodos_pago mp ON c.metodo_pago_id = mp.id
        LEFT JOIN locales l  ON l.id = c.local_id
@@ -168,7 +168,7 @@ class BarberoModel {
         u.telefono      AS cliente_telefono
       FROM citas c
       JOIN estados_cita e  ON c.estado_id   = e.id
-      JOIN servicios s     ON c.servicio_id  = s.id
+      JOIN tbl_servicios s ON c.servicio_id  = s.id
       JOIN usuarios u      ON c.cliente_id   = u.id
       LEFT JOIN metodos_pago mp ON c.metodo_pago_id = mp.id
       LEFT JOIN locales l  ON l.id = c.local_id

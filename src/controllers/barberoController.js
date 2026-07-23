@@ -272,3 +272,21 @@ export const deleteDiaHorario = async (req, res) => {
     res.status(500).json({ ok: false, mensaje: 'Error al eliminar día' });
   }
 };
+
+// PATCH /api/barbero/:id/perfil
+// Uso admin: actualiza el perfil de un barbero específico.
+export const updatePerfilAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actualizado = await BarberoModel.updatePerfil(id, req.body);
+
+    if (!actualizado) {
+      return res.status(400).json({ ok: false, mensaje: 'Barbero no encontrado o sin cambios para actualizar' });
+    }
+
+    res.json({ ok: true, mensaje: 'Perfil de barbero actualizado', data: actualizado });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, mensaje: 'Error al actualizar perfil del barbero' });
+  }
+};

@@ -7,6 +7,7 @@ import {
   cancelAppointment,
   completeAppointment,
   searchAppointments,
+  getAppointmentStates,
   getUpcomingAppointments,
   getAppointmentsCalendar,
   markNoShowAppointments,
@@ -52,6 +53,12 @@ router.get('/search',
   searchAppointments
 );
 
+// Estados disponibles en catalogo.estados_cita / estados_cita
+router.get('/estados',
+  requireRole('Barbero', 'Admin'),
+  getAppointmentStates
+);
+
 // Próximas
 router.get('/proximas',
   requireRole('Barbero', 'Admin'),
@@ -78,7 +85,7 @@ router.get('/:id',
 
 // Editar
 router.put('/:id',
-  requireRole('Barbero', 'Admin'),
+  requireRole('Cliente', 'Barbero', 'Admin'),
   updateAppointment
 );
 

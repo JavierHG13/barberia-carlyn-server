@@ -62,6 +62,80 @@ class EmailService {
     });
   }
 
+  formatCurrency(value) {
+    const amount = Number(value || 0);
+    return amount.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: process.env.MERCADO_PAGO_CURRENCY || 'MXN',
+    });
+  }
+
+  formatAppointmentDate(fecha, hora) {
+    const dateText = fecha
+      ? new Date(`${String(fecha).slice(0, 10)}T00:00:00`).toLocaleDateString('es-MX', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : 'Fecha por confirmar';
+    return `${dateText}${hora ? ` a las ${String(hora).slice(0, 5)}` : ''}`;
+  }
+
+  buildAppointmentRows(appointment, amounts = {}) {
+    return `
+      <table style="width:100%;border-collapse:collapse;margin-top:18px;font-size:14px">
+        <tr><td style="padding:8px 0;color:#64748b">Servicio</td><td style="padding:8px 0;text-align:right"><strong>${appointment.servicio_nombre || appointment.servicio?.nombre || 'Servicio'}</strong></td></tr>
+        <tr><td style="padding:8px 0;color:#64748b">Fecha y hora</td><td style="padding:8px 0;text-align:right"><strong>${this.formatAppointmentDate(appointment.fecha, appointment.hora_inicio || appointment.horaInicio)}</strong></td></tr>
+        <tr><td style="padding:8px 0;color:#64748b">Sucursal</td><td style="padding:8px 0;text-align:right"><strong>${appointment.local_nombre || 'Barberia Carlyn'}</strong></td></tr>
+        <tr><td style="padding:8px 0;color:#64748b">Barbero</td><td style="padding:8px 0;text-align:right"><strong>${appointment.barbero_nombre || 'Barbero asignado'}</strong></td></tr>
+        ${amounts.depositAmount ? `<tr><td style="padding:8px 0;color:#64748b">Anticipo</td><td style="padding:8px 0;text-align:right"><strong>${this.formatCurrency(amounts.depositAmount)}</strong></td></tr>` : ''}
+        ${amounts.remainingAmount !== undefined ? `<tr><td style="padding:8px 0;color:#64748b">Restante</td><td style="padding:8px 0;text-align:right"><strong>${this.formatCurrency(amounts.remainingAmount)}</strong></td></tr>` : ''}
+      </table>
+    `;
+  }
+
+  async sendAppointmentDepositPendingEmail(email, name, appointment, amounts = {}) {
+    if (!email) return;
+    await this.transporter.sendMail({
+      from: `"Barbería Carlyn" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Tu cita esta apartada: falta pagar el anticipo',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#111827">
+          <h2 style="margin-bottom:8px">Hola ${name || 'cliente'}</h2>
+          <p>Tu horario en <strong>Barbería Carlyn</strong> quedo apartado.</p>
+          <p>Para confirmar la cita, entra a <strong>Mis Citas</strong> y paga el anticipo.</p>
+          ${this.buildAppointmentRows(appointment, amounts)}
+          <p style="margin-top:22px;color:#64748b;font-size:13px">Si no completas el anticipo, la reserva puede quedar sin confirmar.</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendAppointmentConfirmedEmail(email, name, appointment, payment = {}) {
+    if (!email) return;
+    const total = Number(appointment.servicio_precio || 0);
+    const paid = Number(payment.amount || appointment.monto_pagado || 0);
+    await this.transporter.sendMail({
+      from: `"Barbería Carlyn" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Tu cita en Barbería Carlyn fue confirmada',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#111827">
+          <h2 style="margin-bottom:8px">Cita confirmada</h2>
+          <p>Hola ${name || 'cliente'}, recibimos tu anticipo y tu cita quedo confirmada.</p>
+          ${this.buildAppointmentRows(appointment, {
+            depositAmount: paid,
+            remainingAmount: Math.max(total - paid, 0),
+          })}
+          ${payment.id ? `<p style="font-size:13px;color:#64748b">Referencia de pago: ${payment.id}</p>` : ''}
+          <p style="margin-top:22px">Te esperamos en Barbería Carlyn.</p>
+        </div>
+      `,
+    });
+  }
+
 
   async sendBackupNotification({ config, backup, proximo_respaldo, error, success }) {
     const transporter = createTransporter();

@@ -112,8 +112,15 @@ export const createAppointment = async (req, res, next) => {
       motivoCancelacion,
     } = req.body;
 
+    const requestedClienteId = parsePositiveInt(clienteId);
+    const isCliente = req.user?.rol === 'Cliente';
+    const effectiveClienteId = isCliente ? req.user.id : requestedClienteId;
+
     // Validate required IDs
-    if (!parsePositiveInt(clienteId)) return res.status(400).json({ message: 'clienteId inválido' });
+    if (!parsePositiveInt(effectiveClienteId)) return res.status(400).json({ message: 'clienteId inválido' });
+    if (isCliente && requestedClienteId && requestedClienteId !== req.user.id) {
+      return res.status(403).json({ message: 'No puedes agendar citas para otro cliente' });
+    }
     if (!parsePositiveInt(barberoId)) return res.status(400).json({ message: 'barberoId inválido' });
     if (!parsePositiveInt(servicioId)) return res.status(400).json({ message: 'servicioId inválido' });
     if (!parsePositiveInt(estadoId)) return res.status(400).json({ message: 'estadoId inválido' });
@@ -166,7 +173,7 @@ export const createAppointment = async (req, res, next) => {
     }
 
     const appointment = await Appointment.create({
-      clienteId: Number(clienteId),
+      clienteId: Number(effectiveClienteId),
       barberoId: Number(barberoId),
       servicioId: Number(servicioId),
       localId: resolvedLocalId, // NUEVO
@@ -185,7 +192,7 @@ export const createAppointment = async (req, res, next) => {
       `INSERT INTO notificaciones (usuario_id, cita_id, tipo, mensaje)
        VALUES ($1, $2, 'confirmacion', $3)`,
       [
-        Number(clienteId),
+        Number(effectiveClienteId),
         appointment.id,
         `Tu cita ha sido agendada para el ${fecha} a las ${parsedHoraInicio}`,
       ]
@@ -212,6 +219,23 @@ export const updateAppointment = async (req, res, next) => {
 
     const existing = await Appointment.findById(appointmentId);
     if (!existing) return res.status(404).json({ message: 'Cita no encontrada' });
+
+    const isCliente = req.user?.rol === 'Cliente';
+    if (isCliente) {
+      if (existing.cliente_id !== req.user.id) {
+        return res.status(403).json({ message: 'No puedes modificar esta cita' });
+      }
+
+      if (!PENDING_ESTADO_IDS.includes(existing.estado_id)) {
+        return res.status(400).json({ message: 'Solo puedes reagendar citas pendientes o confirmadas' });
+      }
+
+      const allowedClientFields = ['fecha', 'horaInicio', 'horaFin', 'notas'];
+      const invalidField = Object.keys(req.body).find((field) => !allowedClientFields.includes(field));
+      if (invalidField) {
+        return res.status(403).json({ message: `No puedes modificar el campo ${invalidField}` });
+      }
+    }
 
     const updates = {};
 
@@ -385,6 +409,7 @@ export const searchAppointments = async (req, res, next) => {
       barberoId,
       clienteId,
       localId, // NUEVO
+      scope: ['proximas', 'historial'].includes(req.query.scope) ? req.query.scope : null,
     };
 
     const [appointments, total] = await Promise.all([
@@ -401,6 +426,23 @@ export const searchAppointments = async (req, res, next) => {
         total,
         totalPages: Math.max(1, Math.ceil(total / safeLimit)),
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAppointmentStates = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT id, nombre
+       FROM estados_cita
+       ORDER BY id ASC`
+    );
+
+    res.json({
+      message: 'Estados de cita obtenidos correctamente',
+      data: result.rows,
     });
   } catch (error) {
     next(error);
@@ -707,6 +749,7 @@ export const getAvailableSlots = async (req, res, next) => {
     }));
 
     const disponibles = [];
+    const slots = [];
 
     // Generar slots cada 40 minutos (30 de cita + 10 de descanso)
     for (let current = startMinutes; current + SLOT_DURATION <= endMinutes; current += SLOT_INTERVAL) {
@@ -723,15 +766,20 @@ export const getAvailableSlots = async (req, res, next) => {
         }
       }
 
+      const slot = {
+        hora: minutesToTime(slotStart),
+        disponible: !estaOcupado,
+        ocupado: estaOcupado,
+      };
+
+      slots.push(slot);
+
       if (!estaOcupado) {
-        disponibles.push({
-          hora: minutesToTime(slotStart),
-          disponible: true
-        });
+        disponibles.push(slot);
       }
     }
 
-    res.json({ disponibles });
+    res.json({ disponibles: slots, libres: disponibles });
   } catch (error) {
     console.error('Error en getAvailableSlots:', error);
     next(error);

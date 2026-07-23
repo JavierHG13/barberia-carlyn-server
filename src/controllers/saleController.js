@@ -1,6 +1,6 @@
 import Sale from '../models/sale.js';
 
-const ALLOWED_PAYMENT_METHODS = ['Efectivo', 'Transferencia', 'Tarjeta'];
+const ALLOWED_PAYMENT_METHODS = ['efectivo', 'transferencia', 'tarjeta'];
 
 const pad2 = (value) => String(value).padStart(2, '0');
 
@@ -86,7 +86,7 @@ export const registerSale = async (req, res, next) => {
       metodoPago: paymentMethod,
       clienteNombre: typeof clienteNombre === 'string' ? clienteNombre.trim() : null,
       notas: typeof notas === 'string' ? notas.trim() : null,
-      vendidaPor: req.user.sub,
+      vendidaPor: req.user.id,
     });
 
     res.status(201).json({
@@ -138,7 +138,7 @@ export const generateCashCut = async (req, res, next) => {
     const cashCut = await Sale.createCashCut({
       from: range.startSql,
       to: range.endSql,
-      generadoPor: req.user.sub,
+      generadoPor: req.user.id,
     });
 
     res.status(201).json({
@@ -149,5 +149,4 @@ export const generateCashCut = async (req, res, next) => {
     next(error);
   }
 };
-
 

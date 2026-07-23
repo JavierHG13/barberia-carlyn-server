@@ -6,6 +6,11 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "ml:seed": "python ml/train_knowledge_models.py --seed-only --rows 1000",
+    "ml:train": "python ml/train_knowledge_models.py --rows 1000",
+    "ml:retrain": "python ml/train_knowledge_models.py --train-only",
+    "ml:evidence": "node scripts/materialize-ml-evidence.js",
+    "ml:evidence:reset": "node scripts/materialize-ml-evidence.js --reset",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
