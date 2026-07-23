@@ -9,7 +9,7 @@ const MERCADO_PAGO_API_URL = 'https://api.mercadopago.com';
 const APPOINTMENT_DURATION_MINUTES = 30;
 const APPOINTMENT_BREAK_MINUTES = 10;
 const CANCELLED_ESTADO_IDS = [4];
-const DEPOSIT_PERCENTAGE = 0.5;
+const DEPOSIT_PERCENTAGE = 1;
 
 const pendingAppointments = new Map();
 
@@ -166,7 +166,7 @@ export const createAppointmentPreference = async (req, res, next) => {
       items: [
         {
           id: String(appointment.servicioId),
-          title: `Anticipo 50% - ${appointment.servicio.nombre}`,
+          title: `Pago completo - ${appointment.servicio.nombre}`,
           description: `Cita en Barbería Carlyn el ${appointment.fecha} a las ${appointment.horaInicio.slice(0, 5)}`,
           quantity: 1,
           currency_id: process.env.MERCADO_PAGO_CURRENCY || 'MXN',
@@ -240,13 +240,13 @@ export const createExistingAppointmentPreference = async (req, res, next) => {
     }
 
     if (['Cancelada', 'Completada'].includes(appointment.estado_nombre)) {
-      return res.status(409).json({ message: 'Esta cita ya no admite pago de anticipo' });
+      return res.status(409).json({ message: 'Esta cita ya no admite pago' });
     }
 
     const { total, depositAmount, remainingAmount } = getAppointmentDeposit(appointment);
     const paidAmount = Number(appointment.monto_pagado || 0);
     if (paidAmount + 0.01 >= depositAmount) {
-      return res.status(409).json({ message: 'El anticipo de esta cita ya fue cubierto' });
+      return res.status(409).json({ message: 'El pago de esta cita ya fue cubierto' });
     }
 
     const externalReference = buildExistingAppointmentReference(appointment.id);
@@ -261,7 +261,7 @@ export const createExistingAppointmentPreference = async (req, res, next) => {
       items: [
         {
           id: String(appointment.servicio_id),
-          title: `Anticipo 50% - ${appointment.servicio_nombre}`,
+          title: `Pago completo - ${appointment.servicio_nombre}`,
           description: `Cita en Barbería Carlyn el ${appointment.fecha} a las ${String(appointment.hora_inicio).slice(0, 5)}`,
           quantity: 1,
           currency_id: process.env.MERCADO_PAGO_CURRENCY || 'MXN',
@@ -347,7 +347,7 @@ export const confirmAppointmentPayment = async (req, res, next) => {
 
       paidAmount = Number(payment.transaction_amount || pending.depositAmount);
       if (paidAmount + 0.01 < pending.depositAmount) {
-        return res.status(409).json({ message: 'El pago aprobado no cubre el anticipo requerido' });
+        return res.status(409).json({ message: 'El pago aprobado no cubre el total requerido' });
       }
 
       appointment = await Appointment.create({
@@ -377,7 +377,7 @@ export const confirmAppointmentPayment = async (req, res, next) => {
       const { depositAmount } = getAppointmentDeposit(existing);
       paidAmount = Number(payment.transaction_amount || depositAmount);
       if (paidAmount + 0.01 < depositAmount) {
-        return res.status(409).json({ message: 'El pago aprobado no cubre el anticipo requerido' });
+        return res.status(409).json({ message: 'El pago aprobado no cubre el total requerido' });
       }
 
       appointment = await Appointment.updateById(existing.id, {

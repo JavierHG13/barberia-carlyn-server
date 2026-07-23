@@ -89,7 +89,7 @@ class EmailService {
         <tr><td style="padding:8px 0;color:#64748b">Fecha y hora</td><td style="padding:8px 0;text-align:right"><strong>${this.formatAppointmentDate(appointment.fecha, appointment.hora_inicio || appointment.horaInicio)}</strong></td></tr>
         <tr><td style="padding:8px 0;color:#64748b">Sucursal</td><td style="padding:8px 0;text-align:right"><strong>${appointment.local_nombre || 'Barberia Carlyn'}</strong></td></tr>
         <tr><td style="padding:8px 0;color:#64748b">Barbero</td><td style="padding:8px 0;text-align:right"><strong>${appointment.barbero_nombre || 'Barbero asignado'}</strong></td></tr>
-        ${amounts.depositAmount ? `<tr><td style="padding:8px 0;color:#64748b">Anticipo</td><td style="padding:8px 0;text-align:right"><strong>${this.formatCurrency(amounts.depositAmount)}</strong></td></tr>` : ''}
+        ${amounts.depositAmount ? `<tr><td style="padding:8px 0;color:#64748b">Pago</td><td style="padding:8px 0;text-align:right"><strong>${this.formatCurrency(amounts.depositAmount)}</strong></td></tr>` : ''}
         ${amounts.remainingAmount !== undefined ? `<tr><td style="padding:8px 0;color:#64748b">Restante</td><td style="padding:8px 0;text-align:right"><strong>${this.formatCurrency(amounts.remainingAmount)}</strong></td></tr>` : ''}
       </table>
     `;
@@ -100,14 +100,14 @@ class EmailService {
     await this.transporter.sendMail({
       from: `"Barbería Carlyn" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Tu cita esta apartada: falta pagar el anticipo',
+      subject: 'Tu cita esta apartada: falta completar el pago',
       html: `
         <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#111827">
           <h2 style="margin-bottom:8px">Hola ${name || 'cliente'}</h2>
           <p>Tu horario en <strong>Barbería Carlyn</strong> quedo apartado.</p>
-          <p>Para confirmar la cita, entra a <strong>Mis Citas</strong> y paga el anticipo.</p>
+          <p>Para confirmar la cita, entra a <strong>Mis Citas</strong> y completa el pago del servicio.</p>
           ${this.buildAppointmentRows(appointment, amounts)}
-          <p style="margin-top:22px;color:#64748b;font-size:13px">Si no completas el anticipo, la reserva puede quedar sin confirmar.</p>
+          <p style="margin-top:22px;color:#64748b;font-size:13px">Si no completas el pago, la reserva puede quedar sin confirmar.</p>
         </div>
       `,
     });
@@ -124,7 +124,7 @@ class EmailService {
       html: `
         <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#111827">
           <h2 style="margin-bottom:8px">Cita confirmada</h2>
-          <p>Hola ${name || 'cliente'}, recibimos tu anticipo y tu cita quedo confirmada.</p>
+          <p>Hola ${name || 'cliente'}, recibimos tu pago y tu cita quedo confirmada.</p>
           ${this.buildAppointmentRows(appointment, {
             depositAmount: paid,
             remainingAmount: Math.max(total - paid, 0),
